@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HR Interview Question Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col items-center py-12 px-4">
+
+  <div class="w-full max-w-2xl">
+    <!-- Header -->
+    <div class="mb-8 text-center">
+      <h1 class="text-3xl font-bold text-slate-800 tracking-tight">HR Interview Generator</h1>
+      <p class="mt-1 text-slate-500 text-sm">Enter a job title to generate tailored interview questions</p>
+    </div>
+
+    <!-- Input form -->
+    <form id="questionForm" class="flex gap-3 mb-8" autocomplete="off">
+      <input
+        id="roleInput"
+        type="text"
+        placeholder="e.g. Senior Product Manager"
+        minlength="2"
+        maxlength="60"
+        required
+        class="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-800 placeholder-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+      />
+      <button
+        type="submit"
+        id="submitBtn"
+        class="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white shadow hover:bg-blue-700 active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Generate
+      </button>
+    </form>
+
+    <!-- Global loading -->
+    <div id="globalLoading" class="hidden flex-col items-center gap-3 py-10">
+      <svg class="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+      </svg>
+      <p class="text-slate-500 text-sm">Generating questions…</p>
+    </div>
+
+    <!-- Error banner -->
+    <div id="errorBanner" class="hidden mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 text-sm"></div>
+
+    <!-- Questions list -->
+    <div id="questionsList" class="flex flex-col gap-4"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById('questionForm');
+    const roleInput = document.getElementById('roleInput');
+    const submitBtn = document.getElementById('submitBtn');
+    const globalLoading = document.getElementById('globalLoading');
+    const errorBanner = document.getElementById('errorBanner');
+    const questionsList = document.getElementById('questionsList');
+
+    function showError(msg) {
+      errorBanner.textContent = msg;
+      errorBanner.classList.remove('hidden');
+    }
+
+    function clearError() {
+      errorBanner.textContent = '';
+      errorBanner.classList.add('hidden');
+    }
+
+    function setGlobalLoading(active) {
+      if (active) {
+        globalLoading.classList.remove('hidden');
+        globalLoading.classList.add('flex');
+        submitBtn.disabled = true;
+      } else {
+        globalLoading.classList.add('hidden');
+        globalLoading.classList.remove('flex');
+        submitBtn.disabled = false;
+      }
+    }
+
+    function renderQuestions(questions) {
+      questionsList.innerHTML = '';
+      questions.forEach((question, index) => {
+        const card = document.createElement('div');
+        card.className = 'rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md flex items-start gap-3';
+
+        const badge = document.createElement('span');
+        badge.className = 'shrink-0 mt-0.5 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700';
+        badge.textContent = `Q${index + 1}`;
+
+        const questionText = document.createElement('p');
+        questionText.className = 'text-slate-700 text-sm leading-relaxed';
+        questionText.textContent = question;
+
+        card.appendChild(badge);
+        card.appendChild(questionText);
+        questionsList.appendChild(card);
+      });
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearError();
+      questionsList.innerHTML = '';
+      const role = roleInput.value.trim();
+
+      setGlobalLoading(true);
+      try {
+        const res = await fetch('/api/get-questions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+        if (!Array.isArray(data.questions) || data.questions.length === 0) {
+          throw new Error('No questions returned. Try again.');
+        }
+        if (data.questions.length === 1 && data.questions[0].startsWith('Error:')) {
+          throw new Error(data.questions[0]);
+        }
+        renderQuestions(data.questions);
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        setGlobalLoading(false);
+      }
+    });
+  </script>
+</body>
+</html>
